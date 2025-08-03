@@ -6,8 +6,9 @@ export default function RecipePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
     const handleGenerateRecipe = async () => {
-        const GEMINI_API_KEY = window.GEMINI_API_KEY;
         if (!ingredients.trim() || !GEMINI_API_KEY) {
             setError('Please enter some ingredients and ensure your API key is set.');
             return;
@@ -52,7 +53,7 @@ export default function RecipePage() {
                     rows="3"
                     placeholder="List your ingredients here, separated by commas..."
                 ></textarea>
-                <button onClick={handleGenerateRecipe} disabled={isLoading || !window.GEMINI_API_KEY} className="mt-4 w-full py-3 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition disabled:bg-stone-400">
+                <button onClick={handleGenerateRecipe} disabled={isLoading || !GEMINI_API_KEY} className="mt-4 w-full py-3 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition disabled:bg-stone-400">
                     {isLoading ? 'Creating...' : 'Generate Recipe ✨'}
                 </button>
                 {error && <p className="text-red-500 text-sm text-center mt-4">{error}</p>}

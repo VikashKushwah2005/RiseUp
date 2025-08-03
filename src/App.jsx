@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -15,79 +16,56 @@ import ChatbotPage from './pages/ChatbotPage';
 import JournalPage from './pages/JournalPage';
 import LoadingScreen from './components/LoadingScreen';
 
-// Helper to get a mock User ID
 export const getMockUserId = () => `user_${Math.random().toString(36).substr(2, 9)}`;
 
 export default function App() {
-  const [page, setPage] = useState('landing');
   const [userData, setUserData] = useState(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const navigate = useNavigate();
 
   const handleLogin = (newUserData) => {
     setUserData(newUserData);
-    setPage('questionnaire');
+    navigate('/questionnaire');
   };
 
   const handleLogout = () => {
     setUserData(null);
-    setPage('landing');
+    navigate('/');
   };
 
   const handlePlanGenerated = (plan) => {
     setUserData(prevData => ({ ...prevData, plan }));
-    setPage('dashboard');
+    navigate('/dashboard');
   };
 
   const handleBookAppointment = (doctor) => {
     setSelectedDoctor(doctor);
-    setPage('booking');
-  };
-
-  const navigate = (targetPage) => {
-    if (targetPage === 'home') {
-      setPage(userData ? 'dashboard' : 'landing');
-    } else {
-      setPage(targetPage);
-    }
-  };
-
-  const renderPage = () => {
-    switch (page) {
-      case 'landing':
-        return <LandingPage setPage={setPage} />;
-      case 'login':
-        return <LoginPage onLogin={handleLogin} />;
-      case 'questionnaire':
-        return <QuestionnairePage userData={userData} onPlanGenerated={handlePlanGenerated} />;
-      case 'dashboard':
-        return <DashboardPage userData={userData} />;
-      case 'meditation':
-        return <MeditationPage />;
-      case 'breathing':
-        return <BreathingPage />;
-      case 'recipes':
-        return <RecipePage />;
-      case 'community':
-        return <CommunityPage />;
-      case 'articles':
-        return <ArticlesPage />;
-      case 'consult':
-        return <ConsultPage onBookAppointment={handleBookAppointment} />;
-      case 'booking':
-        return <BookingPage doctor={selectedDoctor} setPage={setPage} />;
-      case 'chatbot':
-        return <ChatbotPage />;
-      case 'journal':
-        return <JournalPage />;
-      default:
-        return <LandingPage setPage={setPage} />;
-    }
+    navigate('/booking');
   };
 
   return (
     <div className="bg-stone-50 min-h-screen font-sans text-stone-800">
-      <Navbar navigate={navigate} onLogout={handleLogout} isLoggedIn={!!userData} />
-      {renderPage()}
+      <Navbar
+        navigate={navigate}
+        onLogout={handleLogout}
+        isLoggedIn={!!userData}
+      />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+        <Route path="/questionnaire" element={<QuestionnairePage userData={userData} onPlanGenerated={handlePlanGenerated} />} />
+        <Route path="/dashboard" element={<DashboardPage userData={userData} />} />
+        <Route path="/meditation" element={<MeditationPage />} />
+        <Route path="/breathing" element={<BreathingPage />} />
+        <Route path="/recipes" element={<RecipePage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/articles" element={<ArticlesPage />} />
+        <Route path="/consult" element={<ConsultPage onBookAppointment={handleBookAppointment} />} />
+        <Route path="/booking" element={<BookingPage doctor={selectedDoctor} setPage={navigate} />} />
+        <Route path="/chatbot" element={<ChatbotPage />} />
+        <Route path="/journal" element={<JournalPage />} />
+        <Route path="*" element={<LandingPage />} />
+      </Routes>
     </div>
   );
 }

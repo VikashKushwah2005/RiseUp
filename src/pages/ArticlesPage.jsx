@@ -6,12 +6,13 @@ export default function ArticlesPage() {
   const [summaries, setSummaries] = useState({});
   const [loadingSummary, setLoadingSummary] = useState(null);
 
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
   const handleToggle = (id) => {
     setExpandedId(expandedId === id ? null : id);
   };
 
   const handleArticleSummary = async (articleId, content) => {
-    const GEMINI_API_KEY = window.GEMINI_API_KEY;
     if (summaries[articleId] || !GEMINI_API_KEY) return;
     setLoadingSummary(articleId);
     const prompt = `Summarize the following article into three concise bullet points. Focus on the key takeaways. Article: "${content}"`;
@@ -60,7 +61,7 @@ export default function ArticlesPage() {
                 </button>
                 <button 
                     onClick={() => handleArticleSummary(article.id, article.content)} 
-                    disabled={loadingSummary === article.id || summaries[article.id] || !window.GEMINI_API_KEY}
+                    disabled={loadingSummary === article.id || summaries[article.id] || !GEMINI_API_KEY}
                     className="font-semibold text-blue-600 hover:text-blue-700 transition disabled:text-stone-400 disabled:cursor-not-allowed"
                 >
                     {loadingSummary === article.id ? 'Summarizing...' : (summaries[article.id] ? '✓ Summarized' : 'Summarize with AI ✨')}

@@ -8,12 +8,14 @@ export default function ChatbotPage() {
     const [isLoading, setIsLoading] = useState(false);
     const chatContainerRef = useRef(null);
 
+    // Get Gemini API key from .env (Vite convention)
+    const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
     useEffect(() => {
         chatContainerRef.current?.scrollTo(0, chatContainerRef.current.scrollHeight);
     }, [messages]);
 
     const handleSend = async () => {
-        const GEMINI_API_KEY = window.GEMINI_API_KEY;
         if (!input.trim() || !GEMINI_API_KEY) return;
         const userMessage = { text: input, sender: 'user' };
         setMessages(prev => [...prev, userMessage]);
@@ -76,11 +78,11 @@ export default function ChatbotPage() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSend()}
-                        placeholder={window.GEMINI_API_KEY ? "Speak your mind..." : "API Key needed for chat"}
+                        placeholder={GEMINI_API_KEY ? "Speak your mind..." : "API Key needed for chat"}
                         className="w-full p-3 text-stone-700 bg-stone-100 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        disabled={!window.GEMINI_API_KEY}
+                        disabled={!GEMINI_API_KEY}
                     />
-                    <button onClick={handleSend} disabled={isLoading || !window.GEMINI_API_KEY} className="bg-amber-600 text-white p-3 rounded-full hover:bg-amber-700 transition disabled:bg-stone-400">
+                    <button onClick={handleSend} disabled={isLoading || !GEMINI_API_KEY} className="bg-amber-600 text-white p-3 rounded-full hover:bg-amber-700 transition disabled:bg-stone-400">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
                         </svg>

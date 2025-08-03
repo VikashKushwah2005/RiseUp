@@ -9,6 +9,8 @@ export default function QuestionnairePage({ userData, onPlanGenerated }) {
   const [error, setError] = useState('');
   const ageGroup = userData?.ageGroup;
   const currentQuestions = questions[ageGroup] || [];
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
   const handleAnswer = (index, value) => {
     const newAnswers = [...answers];
     newAnswers[index] = value;
@@ -19,9 +21,8 @@ export default function QuestionnairePage({ userData, onPlanGenerated }) {
       setError('Please answer all questions and describe your challenge.');
       return;
     }
-    const GEMINI_API_KEY = window.GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-        setError("API Key is missing. Please add it at the top of the script.");
+        setError("API Key is missing. Please add it to your .env file.");
         return;
     }
     setError('');

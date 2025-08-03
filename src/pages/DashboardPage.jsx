@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import LoadingScreen from '../components/LoadingScreen';
 
 export default function DashboardPage({ userData }) {
+  const navigate = useNavigate();
   const [streak, setStreak] = useState(userData?.streak || 0);
   const [todayIndex, setTodayIndex] = useState(0);
   const [completedTasks, setCompletedTasks] = useState([]);
@@ -9,6 +11,16 @@ export default function DashboardPage({ userData }) {
   const [journalEntry, setJournalEntry] = useState('');
   const [journalInsight, setJournalInsight] = useState('');
   const [isInsightLoading, setIsInsightLoading] = useState(false);
+
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+  useEffect(() => {
+    if (!userData) {
+      navigate('/login');
+    } else if (!userData.plan || userData.plan.length === 0) {
+      navigate('/questionnaire');
+    }
+  }, [userData, navigate]);
 
   const calculateTodayIndex = useCallback(() => {
     if (!userData || !userData.createdAt) return 0;
@@ -20,7 +32,9 @@ export default function DashboardPage({ userData }) {
   }, [userData]);
 
   useEffect(() => {
-    if (userData) setTodayIndex(calculateTodayIndex());
+    if (userData && userData.plan && userData.plan.length > 0) {
+      setTodayIndex(calculateTodayIndex());
+    }
   }, [userData, calculateTodayIndex]);
 
   const handleTaskToggle = (task) => {
@@ -36,7 +50,6 @@ export default function DashboardPage({ userData }) {
   };
 
   const handleJournalAnalysis = async () => {
-    const GEMINI_API_KEY = window.GEMINI_API_KEY;
     if (!journalEntry.trim() || !GEMINI_API_KEY) return;
     setIsInsightLoading(true);
     setJournalInsight('');
@@ -61,7 +74,8 @@ export default function DashboardPage({ userData }) {
     }
   };
 
-  if (!userData || !userData.plan || userData.plan.length === 0) return <LoadingScreen text="Loading your plan..." />;
+  // If plan is missing, don't render anything (redirect happens above)
+  if (!userData || !userData.plan || userData.plan.length === 0) return null;
   const todayPlan = userData.plan[todayIndex];
   if (!todayPlan) return <LoadingScreen text="Finalizing your plan..." />;
   const progress = (completedTasks.length / 5) * 100;
