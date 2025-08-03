@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { questions } from '../data/questions';
 import LoadingScreen from '../components/LoadingScreen';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase'; // Make sure this is your Firestore instance
 
 export default function QuestionnairePage({ userData, onPlanGenerated }) {
   const [answers, setAnswers] = useState(Array(10).fill(null));
@@ -9,6 +11,7 @@ export default function QuestionnairePage({ userData, onPlanGenerated }) {
   const [error, setError] = useState('');
   const ageGroup = userData?.ageGroup;
   const currentQuestions = questions[ageGroup] || [];
+
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
   const handleAnswer = (index, value) => {
@@ -16,18 +19,31 @@ export default function QuestionnairePage({ userData, onPlanGenerated }) {
     newAnswers[index] = value;
     setAnswers(newAnswers);
   };
+
   const handleSubmit = async () => {
     if (answers.includes(null) || !problem) {
       setError('Please answer all questions and describe your challenge.');
       return;
     }
     if (!GEMINI_API_KEY) {
-        setError("API Key is missing. Please add it to your .env file.");
-        return;
+      setError("API Key is missing. Please add it to your .env file.");
+      return;
     }
     setError('');
     setLoading(true);
-    const prompt = `A user aged ${userData.age} is seeking guidance. Based on their answers and primary challenge, create a 14-day transformative plan rooted in principles of self-discipline, mindfulness, and traditional Indian wisdom (like Brahmacharya). The tone should be gentle, supportive, and encouraging. Each day must have exactly 5 actionable tasks. The tasks should start very light and gradually increase in difficulty or commitment. User's Questionnaire Answers: ${currentQuestions.map((q, i) => `${i + 1}. ${q.q} - Answer: ${answers[i]}`).join('\n')} User's primary challenge: "${problem}" IMPORTANT: Your entire response must be ONLY the raw JSON array, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting. For example: [{"day": "Day 1", "tasks": ["Task 1", "Task 2", "Task 3", "Task 4", "Task 5"]}, ...]`;
+    const prompt = `
+A user aged ${userData.age} is seeking guidance.
+Their main challenge is: "${problem}".
+Based on their answers below and their primary challenge, create a 14-day transformative plan rooted in principles of self-discipline, mindfulness, and traditional Indian wisdom (like Brahmacharya).
+The tone should be gentle, supportive, and encouraging.
+Each day must have exactly 5 actionable tasks. The tasks should start very light and gradually increase in difficulty or commitment.
+
+User's Questionnaire Answers:
+${currentQuestions.map((q, i) => `${i + 1}. ${q.q} - Answer: ${answers[i]}`).join('\n')}
+
+IMPORTANT: Your entire response must be ONLY the raw JSON array, starting with '[' and ending with ']'. Do not include any other text, explanations, or markdown formatting.
+For example: [{"day": "Day 1", "tasks": ["Task 1", "Task 2", "Task 3", "Task 4", "Task 5"]}, ...]
+`;
     try {
       let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
       const payload = { contents: chatHistory };
@@ -43,24 +59,39 @@ export default function QuestionnairePage({ userData, onPlanGenerated }) {
           const jsonString = responseText.substring(startIndex, endIndex + 1);
           try {
             const plan = JSON.parse(jsonString);
+
+            // Save to Firestore under UID
+            await setDoc(doc(db, "users", userData.id), {
+              ...userData,
+              questionnaire: {
+                answers,
+                problem,
+                ageGroup,
+                age: userData.age,
+                timestamp: new Date().toISOString()
+              },
+              plan
+            });
+
             onPlanGenerated(plan);
           } catch (parseError) {
             console.error("JSON Parsing Error:", parseError, "--- Original Text:", responseText);
             throw new Error("Failed to parse the generated plan.");
           }
         } else { 
-            console.error("Invalid response format from API:", responseText);
-            throw new Error("Could not find a valid plan in the API response."); 
+          console.error("Invalid response format from API:", responseText);
+          throw new Error("Could not find a valid plan in the API response."); 
         }
       } else { 
-          console.error("Malformed API response:", result);
-          throw new Error("The response from the API was empty or malformed."); 
+        console.error("Malformed API response:", result);
+        throw new Error("The response from the API was empty or malformed."); 
       }
     } catch (e) {
       console.error("Error generating plan:", e);
       setError("Sorry, we couldn't create your plan right now. Please try again later.");
     } finally { setLoading(false); }
   };
+
   if (!ageGroup) return <LoadingScreen text="Loading your profile..." />;
   if (loading) return <LoadingScreen text="Crafting your personalized journey..." />;
   return (

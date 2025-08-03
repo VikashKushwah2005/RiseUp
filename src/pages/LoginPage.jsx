@@ -6,6 +6,8 @@ import {
   updateProfile,
   signInWithEmailAndPassword
 } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 export default function LoginPage({ onLogin }) {
   const [mode, setMode]         = useState('signup'); // 'signup' or 'login'
@@ -53,22 +55,31 @@ export default function LoginPage({ onLogin }) {
           taskHistory:  {}
         };
         onLogin(newUserProfile);
-        navigate('/dashboard');
+        navigate('/questionnaire');
       } else {
         // Login
         const userCred = await signInWithEmailAndPassword(auth, email, password);
         const user = userCred.user;
-        const userProfile = {
-          id:           user.uid,
-          name:         user.displayName || '',
-          email:        user.email,
-          age:          '',
-          ageGroup:     '',
-          createdAt:    user.metadata?.creationTime || '',
-          plan:         [],
-          streak:       0,
-          taskHistory:  {}
-        };
+
+        // Fetch user data from Firestore
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        let userProfile;
+        if (userDoc.exists()) {
+          userProfile = userDoc.data();
+        } else {
+          // fallback if no Firestore doc found
+          userProfile = {
+            id:           user.uid,
+            name:         user.displayName || '',
+            email:        user.email,
+            age:          '',
+            ageGroup:     '',
+            createdAt:    user.metadata?.creationTime || '',
+            plan:         [],
+            streak:       0,
+            taskHistory:  {}
+          };
+        }
         onLogin(userProfile);
         navigate('/dashboard');
       }

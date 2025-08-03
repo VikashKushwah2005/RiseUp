@@ -1,25 +1,56 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoadingScreen from '../components/LoadingScreen';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
-export default function DashboardPage({ userData }) {
+export default function DashboardPage({ userData: initialUserData }) {
   const navigate = useNavigate();
-  const [streak, setStreak] = useState(userData?.streak || 0);
+  const [userData, setUserData] = useState(initialUserData);
+  const [streak, setStreak] = useState(initialUserData?.streak || 0);
   const [todayIndex, setTodayIndex] = useState(0);
   const [completedTasks, setCompletedTasks] = useState([]);
   const [lastCompletionDate, setLastCompletionDate] = useState(null);
   const [journalEntry, setJournalEntry] = useState('');
   const [journalInsight, setJournalInsight] = useState('');
   const [isInsightLoading, setIsInsightLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
+  // Fetch user data from Firestore on mount
   useEffect(() => {
-    if (!userData) {
-      navigate('/login');
-    } else if (!userData.plan || userData.plan.length === 0) {
-      navigate('/questionnaire');
+    async function fetchUserData() {
+      if (!initialUserData?.id) {
+        navigate('/login');
+        return;
+      }
+      try {
+        const userDoc = await getDoc(doc(db, "users", initialUserData.id));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserData(data);
+          setStreak(data.streak || 0);
+          setLoading(false);
+        } else {
+          navigate('/questionnaire');
+        }
+      } catch (err) {
+        console.error("Error fetching user data from Firestore:", err);
+        navigate('/login');
+      }
     }
+    fetchUserData();
+    // eslint-disable-next-line
+  }, [initialUserData?.id, navigate]);
+
+  useEffect(() => {
+    if (!userData) return;
+    if (!userData.plan || userData.plan.length === 0) {
+      navigate('/questionnaire');
+      return;
+    }
+    setTodayIndex(calculateTodayIndex());
   }, [userData, navigate]);
 
   const calculateTodayIndex = useCallback(() => {
@@ -31,14 +62,10 @@ export default function DashboardPage({ userData }) {
     return diffDays < 14 ? diffDays : 13;
   }, [userData]);
 
-  useEffect(() => {
-    if (userData && userData.plan && userData.plan.length > 0) {
-      setTodayIndex(calculateTodayIndex());
-    }
-  }, [userData, calculateTodayIndex]);
-
   const handleTaskToggle = (task) => {
-    const newCompletedTasks = completedTasks.includes(task) ? completedTasks.filter(t => t !== task) : [...completedTasks, task];
+    const newCompletedTasks = completedTasks.includes(task)
+      ? completedTasks.filter(t => t !== task)
+      : [...completedTasks, task];
     setCompletedTasks(newCompletedTasks);
     if (newCompletedTasks.length === 5) {
       const todayStr = new Date().toDateString();
@@ -55,26 +82,31 @@ export default function DashboardPage({ userData }) {
     setJournalInsight('');
     const prompt = `Act as a compassionate, wise friend. A user has shared this journal entry. Do not give medical advice. Reflect their feelings back to them gently, identify one core emotion or theme, and offer one simple, actionable suggestion based on mindfulness or self-care. Keep the entire response to under 60 words. Journal Entry: "${journalEntry}"`;
     try {
-        let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-        const payload = { contents: chatHistory };
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!response.ok) throw new Error("API call failed");
-        const result = await response.json();
-        if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
-            setJournalInsight(result.candidates[0].content.parts[0].text);
-        } else {
-            setJournalInsight("Could not get an insight at this moment. Please try again.");
-        }
+      let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+      const payload = { contents: chatHistory };
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) throw new Error("API call failed");
+      const result = await response.json();
+      if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
+        setJournalInsight(result.candidates[0].content.parts[0].text);
+      } else {
+        setJournalInsight("Could not get an insight at this moment. Please try again.");
+      }
     } catch (error) {
-        console.error("Journal Analysis Error:", error);
-        setJournalInsight("Sorry, an error occurred while generating your insight.");
+      console.error("Journal Analysis Error:", error);
+      setJournalInsight("Sorry, an error occurred while generating your insight.");
     } finally {
-        setIsInsightLoading(false);
+      setIsInsightLoading(false);
     }
   };
 
-  // If plan is missing, don't render anything (redirect happens above)
+  // Loading state while fetching Firestore data
+  if (loading) return <LoadingScreen text="Loading your dashboard..." />;
   if (!userData || !userData.plan || userData.plan.length === 0) return null;
   const todayPlan = userData.plan[todayIndex];
   if (!todayPlan) return <LoadingScreen text="Finalizing your plan..." />;
@@ -114,19 +146,23 @@ export default function DashboardPage({ userData }) {
       <div className="bg-white p-8 rounded-2xl shadow-xl">
         <h3 className="text-2xl font-bold text-stone-800 mb-4">Daily Journal</h3>
         <textarea
-            value={journalEntry}
-            onChange={(e) => setJournalEntry(e.target.value)}
-            className="w-full p-3 text-stone-700 bg-stone-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-            rows="5"
-            placeholder="How are you feeling today? What's on your mind?"
+          value={journalEntry}
+          onChange={(e) => setJournalEntry(e.target.value)}
+          className="w-full p-3 text-stone-700 bg-stone-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+          rows="5"
+          placeholder="How are you feeling today? What's on your mind?"
         ></textarea>
-        <button onClick={handleJournalAnalysis} disabled={isInsightLoading || !journalEntry} className="mt-4 w-full py-3 font-bold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition disabled:bg-stone-400">
-            {isInsightLoading ? 'Analyzing...' : 'Get Gentle Insights ✨'}
+        <button
+          onClick={handleJournalAnalysis}
+          disabled={isInsightLoading || !journalEntry}
+          className="mt-4 w-full py-3 font-bold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition disabled:bg-stone-400"
+        >
+          {isInsightLoading ? 'Analyzing...' : 'Get Gentle Insights ✨'}
         </button>
         {journalInsight && (
-            <div className="mt-4 p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-800 rounded-r-lg">
-                <p className="italic">{journalInsight}</p>
-            </div>
+          <div className="mt-4 p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-800 rounded-r-lg">
+            <p className="italic">{journalInsight}</p>
+          </div>
         )}
       </div>
     </div>
