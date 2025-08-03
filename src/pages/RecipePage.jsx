@@ -62,6 +62,9 @@ export default function RecipePage() {
             {recipe && (
                 <div className="mt-8 bg-white p-8 rounded-2xl shadow-xl">
                     {recipe.split('\n').map((line, index) => {
+                        // Remove leading stars and spaces for better readability
+                        const cleanLine = line.replace(/^\s*[\*\-]\s?/, '').trim();
+
                         if (line.startsWith('Recipe Title:')) {
                             return <h3 key={index} className="text-2xl font-bold text-amber-700 mb-4">{line.replace('Recipe Title:', '').trim()}</h3>;
                         }
@@ -71,8 +74,14 @@ export default function RecipePage() {
                         if (line.startsWith('Instructions:')) {
                             return <h4 key={index} className="text-xl font-bold text-stone-800 mt-4 mb-2">{line.trim()}</h4>;
                         }
-                        if (line.trim()) {
-                            return <p key={index} className="text-stone-700 my-1">{line.trim()}</p>;
+                        // Only render cleaned lines that aren't empty or section headers
+                        if (
+                            cleanLine &&
+                            !line.startsWith('Recipe Title:') &&
+                            !line.startsWith('Ingredients:') &&
+                            !line.startsWith('Instructions:')
+                        ) {
+                            return <p key={index} className="text-stone-700 my-1">{cleanLine}</p>;
                         }
                         return null;
                     })}
