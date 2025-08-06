@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
 export default function MeditationPage() {
   const [isPlaying, setIsPlaying] = useState(false);
-  const toggleSound = () => setIsPlaying(!isPlaying);
+  const audioRef = useRef(null);
+
+  const toggleSound = () => {
+    if (isPlaying) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
   return (
     <div className="min-h-[calc(100vh-68px)] flex flex-col items-center justify-center bg-gradient-to-br from-cyan-50 to-blue-100 p-6 text-center">
       <h2 className="text-4xl font-bold text-stone-800 mb-4">Find Your Center</h2>
@@ -12,6 +23,11 @@ export default function MeditationPage() {
           {isPlaying ? '||' : 'OM'}
         </div>
       </button>
+      <audio
+        ref={audioRef}
+        src="/sounds/om.mp3" // Place your om.mp3 file in public/sounds/
+        onEnded={() => setIsPlaying(false)}
+      />
       <p className="mt-8 text-stone-500">{isPlaying ? 'Playing...' : 'Tap to begin'}</p>
     </div>
   );
